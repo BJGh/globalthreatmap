@@ -31,13 +31,15 @@ const clusterLayer: LayerProps = {
   paint: {
     "circle-color": [
       "step",
-      ["get", "point_count"],
+      ["get", "maxSeverity"],
       "#3b82f6",
-      10,
+      2,
+      "#22c55e",
+      3,
       "#eab308",
-      30,
+      4,
       "#f97316",
-      100,
+      5,
       "#ef4444",
     ],
     "circle-radius": ["step", ["get", "point_count"], 12, 10, 16, 30, 20, 100, 24],
@@ -337,24 +339,44 @@ export function ThreatMap() {
   }, []);
 
   const geojsonData = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: filteredEvents.map((event) => ({
-        type: "Feature" as const,
-        properties: {
-          id: event.id,
-          title: event.title,
-          category: event.category,
-          threatLevel: event.threatLevel,
-          severity: getSeverityValue(event.threatLevel),
-          timestamp: event.timestamp,
-        },
-        geometry: {
-          type: "Point" as const,
-          coordinates: [event.location.longitude, event.location.latitude],
-        },
-      })),
-    }),
+    () => {
+      // Track coordinate usage to jitter overlapping points
+      const coordCounts: Record<string, number> = {};
+      return {
+        type: "FeatureCollection" as const,
+        features: filteredEvents.map((event) => {
+          const key = `${event.location.latitude.toFixed(4)},${event.location.longitude.toFixed(4)}`;
+          const count = coordCounts[key] || 0;
+          coordCounts[key] = count + 1;
+
+          // Spread overlapping points in a spiral pattern
+          let lng = event.location.longitude;
+          let lat = event.location.latitude;
+          if (count > 0) {
+            const angle = (count * 137.5 * Math.PI) / 180; // golden angle
+            const radius = 0.3 + count * 0.15; // degrees offset, grows outward
+            lng += radius * Math.cos(angle);
+            lat += radius * Math.sin(angle);
+          }
+
+          return {
+            type: "Feature" as const,
+            properties: {
+              id: event.id,
+              title: event.title,
+              category: event.category,
+              threatLevel: event.threatLevel,
+              severity: getSeverityValue(event.threatLevel),
+              timestamp: event.timestamp,
+            },
+            geometry: {
+              type: "Point" as const,
+              coordinates: [lng, lat],
+            },
+          };
+        }),
+      };
+    },
     [filteredEvents]
   );
 
@@ -590,6 +612,9 @@ export function ThreatMap() {
         cluster={showClusters}
         clusterMaxZoom={14}
         clusterRadius={50}
+        clusterProperties={{
+          maxSeverity: ["max", ["get", "severity"]],
+        }}
       >
         {showHeatmap && <Layer {...heatmapLayer} />}
         {showClusters && <Layer {...clusterLayer} />}
