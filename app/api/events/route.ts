@@ -28,6 +28,17 @@ const THREAT_QUERIES = [
   "arms deal weapons shipment defense",
   "coup election interference political crisis",
   "nuclear threat ballistic missile test",
+  "Iran US military strikes airstrikes 2026",
+  "Iran nuclear facilities attack escalation",
+  "Israel Hamas Gaza ceasefire offensive",
+  "Ukraine Russia frontline offensive counterattack",
+  "Yemen Houthi Red Sea shipping attacks",
+  "Sudan civil war RSF SAF Khartoum",
+  "Taiwan China military exercises strait",
+  "Iran Israel retaliation missile drone",
+  "NATO military deployment buildup",
+  "North Korea missile launch provocation",
+  "South China Sea Philippines military confrontation",
 ];
 
 function getStartDate(): string {

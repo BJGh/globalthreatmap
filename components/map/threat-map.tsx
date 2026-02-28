@@ -260,6 +260,61 @@ const fireDetectionLayer: LayerProps = {
   },
 };
 
+const militaryFlightLayer: LayerProps = {
+  id: "military-flights",
+  type: "symbol",
+  layout: {
+    "icon-image": "airplane-icon",
+    "icon-size": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      2, 0.5,
+      5, 0.7,
+      8, 1.0,
+    ],
+    "icon-rotate": ["get", "heading"],
+    "icon-rotation-alignment": "map",
+    "icon-allow-overlap": true,
+    "icon-ignore-placement": true,
+    "text-field": ["get", "callsign"],
+    "text-font": ["DIN Pro Medium", "Arial Unicode MS Bold"],
+    "text-size": 10,
+    "text-offset": [0, 1.5],
+    "text-anchor": "top",
+    "text-optional": true,
+  },
+  paint: {
+    "text-color": "#38bdf8",
+    "text-halo-color": "#0f172a",
+    "text-halo-width": 1,
+  },
+};
+
+const militaryFlightLabelLayer: LayerProps = {
+  id: "military-flights-labels",
+  type: "symbol",
+  layout: {
+    "text-field": [
+      "concat",
+      ["get", "callsign"],
+      " ",
+      ["to-string", ["get", "altitude"]],
+      "ft",
+    ],
+    "text-font": ["DIN Pro Medium", "Arial Unicode MS Bold"],
+    "text-size": 9,
+    "text-offset": [0, 2.2],
+    "text-anchor": "top",
+    "text-optional": true,
+  },
+  paint: {
+    "text-color": "#94a3b8",
+    "text-halo-color": "#0f172a",
+    "text-halo-width": 1,
+  },
+};
+
 const fireDetectionHeatLayer: LayerProps = {
   id: "fire-heat",
   type: "heatmap",
@@ -340,6 +395,10 @@ export function ThreatMap() {
     fireDetections,
     setFireDetections,
     setFireDetectionsLoading,
+    showMilitaryFlights,
+    militaryFlights,
+    setMilitaryFlights,
+    setMilitaryFlightsLoading,
   } = useMapStore();
   const { filteredEvents, selectedEvent, selectEvent } = useEventsStore();
   const { isAuthenticated } = useAuthStore();
@@ -354,6 +413,20 @@ export function ThreatMap() {
     region: string;
     acqDate: string;
     acqTime: string;
+  } | null>(null);
+  const [selectedFlight, setSelectedFlight] = useState<{
+    longitude: number;
+    latitude: number;
+    callsign: string;
+    originCountry: string;
+    altitude: number;
+    velocity: number;
+    heading: number;
+    verticalRate: number;
+    squawk: string;
+    aircraftType: string;
+    confidence: string;
+    region: string;
   } | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(null);
@@ -403,6 +476,28 @@ export function ThreatMap() {
 
     fetchFireDetections();
   }, [setFireDetections, setFireDetectionsLoading]);
+
+  // Fetch military flights on mount + poll every 60s
+  useEffect(() => {
+    const fetchMilitaryFlights = async () => {
+      setMilitaryFlightsLoading(true);
+      try {
+        const response = await fetch("/api/military-flights");
+        const data = await response.json();
+        if (data.flights) {
+          setMilitaryFlights(data.flights);
+        }
+      } catch (error) {
+        console.error("Error fetching military flights:", error);
+      } finally {
+        setMilitaryFlightsLoading(false);
+      }
+    };
+
+    fetchMilitaryFlights();
+    const interval = setInterval(fetchMilitaryFlights, 60_000);
+    return () => clearInterval(interval);
+  }, [setMilitaryFlights, setMilitaryFlightsLoading]);
 
   // Blinking effect for selected country while loading
   useEffect(() => {
@@ -470,6 +565,57 @@ export function ThreatMap() {
 
     const imageData = ctx.getImageData(0, 0, size, size);
     map.addImage("fire-icon", { width: size, height: size, data: new Uint8Array(imageData.data) });
+
+    // Draw airplane icon (pointing up / north)
+    const planeSize = 32;
+    const pc = document.createElement("canvas");
+    pc.width = planeSize;
+    pc.height = planeSize;
+    const pctx = pc.getContext("2d");
+    if (pctx) {
+      const cx = planeSize / 2;
+      const cy = planeSize / 2;
+
+      // Fuselage
+      pctx.beginPath();
+      pctx.moveTo(cx, 2);
+      pctx.lineTo(cx + 3, cy + 4);
+      pctx.lineTo(cx + 2, planeSize - 4);
+      pctx.lineTo(cx, planeSize - 2);
+      pctx.lineTo(cx - 2, planeSize - 4);
+      pctx.lineTo(cx - 3, cy + 4);
+      pctx.closePath();
+      pctx.fillStyle = "#38bdf8";
+      pctx.fill();
+
+      // Wings
+      pctx.beginPath();
+      pctx.moveTo(cx, cy - 2);
+      pctx.lineTo(planeSize - 2, cy + 6);
+      pctx.lineTo(planeSize - 2, cy + 8);
+      pctx.lineTo(cx + 2, cy + 4);
+      pctx.lineTo(cx - 2, cy + 4);
+      pctx.lineTo(2, cy + 8);
+      pctx.lineTo(2, cy + 6);
+      pctx.closePath();
+      pctx.fillStyle = "#0ea5e9";
+      pctx.fill();
+
+      // Tail
+      pctx.beginPath();
+      pctx.moveTo(cx, planeSize - 8);
+      pctx.lineTo(cx + 6, planeSize - 3);
+      pctx.lineTo(cx + 6, planeSize - 1);
+      pctx.lineTo(cx, planeSize - 4);
+      pctx.lineTo(cx - 6, planeSize - 1);
+      pctx.lineTo(cx - 6, planeSize - 3);
+      pctx.closePath();
+      pctx.fillStyle = "#0ea5e9";
+      pctx.fill();
+
+      const planeData = pctx.getImageData(0, 0, planeSize, planeSize);
+      map.addImage("airplane-icon", { width: planeSize, height: planeSize, data: new Uint8Array(planeData.data) });
+    }
   }, []);
 
   const geojsonData = useMemo(
@@ -577,6 +723,33 @@ export function ThreatMap() {
     [fireDetections]
   );
 
+  const militaryFlightsData = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: militaryFlights.map((flight) => ({
+        type: "Feature" as const,
+        properties: {
+          id: flight.icao24,
+          callsign: flight.callsign,
+          originCountry: flight.originCountry,
+          altitude: flight.altitude,
+          velocity: flight.velocity,
+          heading: flight.heading,
+          verticalRate: flight.verticalRate,
+          squawk: flight.squawk,
+          aircraftType: flight.aircraftType,
+          confidence: flight.confidence,
+          region: flight.region,
+        },
+        geometry: {
+          type: "Point" as const,
+          coordinates: [flight.longitude, flight.latitude],
+        },
+      })),
+    }),
+    [militaryFlights]
+  );
+
   const handleMapClick = useCallback(
     async (event: MapMouseEvent) => {
       // If clicking on a known feature (event, cluster, entity), handle that
@@ -635,6 +808,27 @@ export function ThreatMap() {
           setSelectedEntityLocation(null);
           setSelectedFire(null);
           return;
+        } else if (layerId === "military-flights") {
+          const coords = (feature.geometry as GeoJSON.Point).coordinates;
+          setSelectedFlight({
+            longitude: coords[0],
+            latitude: coords[1],
+            callsign: feature.properties?.callsign || "Unknown",
+            originCountry: feature.properties?.originCountry || "Unknown",
+            altitude: feature.properties?.altitude || 0,
+            velocity: feature.properties?.velocity || 0,
+            heading: feature.properties?.heading || 0,
+            verticalRate: feature.properties?.verticalRate || 0,
+            squawk: feature.properties?.squawk || "",
+            aircraftType: feature.properties?.aircraftType || "unknown",
+            confidence: feature.properties?.confidence || "low",
+            region: feature.properties?.region || "Unknown",
+          });
+          selectEvent(null);
+          setSelectedEntityLocation(null);
+          setSelectedMilitaryBase(null);
+          setSelectedFire(null);
+          return;
         } else if (layerId === "fire-detections") {
           const coords = (feature.geometry as GeoJSON.Point).coordinates;
           setSelectedFire({
@@ -659,6 +853,7 @@ export function ThreatMap() {
       setSelectedEntityLocation(null);
       setSelectedMilitaryBase(null);
       setSelectedFire(null);
+      setSelectedFlight(null);
 
       const { lng, lat } = event.lngLat;
 
@@ -732,6 +927,7 @@ export function ThreatMap() {
         "entity-locations",
         "military-bases-circle",
         ...(showFireDetections ? ["fire-detections"] : []),
+        ...(showMilitaryFlights ? ["military-flights"] : []),
       ]}
       onClick={handleMapClick}
       onMouseEnter={handleMouseEnter}
@@ -820,6 +1016,13 @@ export function ThreatMap() {
         <Source id="fire-detections" type="geojson" data={fireDetectionsData}>
           <Layer {...fireDetectionHeatLayer} />
           <Layer {...fireDetectionLayer} />
+        </Source>
+      )}
+
+      {/* Military Flights Layer (OpenSky) */}
+      {showMilitaryFlights && militaryFlights.length > 0 && (
+        <Source id="military-flights" type="geojson" data={militaryFlightsData}>
+          <Layer {...militaryFlightLayer} />
         </Source>
       )}
 
@@ -1041,6 +1244,85 @@ export function ThreatMap() {
             </div>
             <div className="mt-2 text-[10px] text-muted-foreground/70">
               NASA FIRMS VIIRS satellite data
+            </div>
+          </div>
+        </Popup>
+      )}
+
+      {selectedFlight && (
+        <Popup
+          longitude={selectedFlight.longitude}
+          latitude={selectedFlight.latitude}
+          anchor="bottom"
+          onClose={() => setSelectedFlight(null)}
+          closeButton={true}
+          closeOnClick={false}
+          className="threat-popup"
+        >
+          <div className="min-w-[240px] p-2">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
+                <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground font-mono">
+                  {selectedFlight.callsign}
+                </h3>
+                <span className={`text-xs ${
+                  selectedFlight.confidence === "high" ? "text-sky-400" :
+                  selectedFlight.confidence === "medium" ? "text-yellow-400" : "text-slate-400"
+                }`}>
+                  {selectedFlight.aircraftType !== "unknown" ? selectedFlight.aircraftType.toUpperCase() : "Military"} - {selectedFlight.originCountry}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Altitude</span>
+                <span className="font-medium text-foreground">{selectedFlight.altitude.toLocaleString()} ft</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Speed</span>
+                <span className="font-medium text-foreground">{selectedFlight.velocity} kts</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Heading</span>
+                <span className="font-medium text-foreground">{Math.round(selectedFlight.heading)}&deg;</span>
+              </div>
+              {selectedFlight.verticalRate !== 0 && (
+                <div className="flex justify-between">
+                  <span>Vertical Rate</span>
+                  <span className={`font-medium ${selectedFlight.verticalRate > 0 ? "text-green-400" : "text-red-400"}`}>
+                    {selectedFlight.verticalRate > 0 ? "+" : ""}{selectedFlight.verticalRate} ft/min
+                  </span>
+                </div>
+              )}
+              {selectedFlight.squawk && (
+                <div className="flex justify-between">
+                  <span>Squawk</span>
+                  <span className={`font-medium font-mono ${
+                    ["7700", "7600", "7500", "7777"].includes(selectedFlight.squawk)
+                      ? "text-red-400"
+                      : "text-foreground"
+                  }`}>{selectedFlight.squawk}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Confidence</span>
+                <span className={`font-medium ${
+                  selectedFlight.confidence === "high" ? "text-sky-400" :
+                  selectedFlight.confidence === "medium" ? "text-yellow-400" : "text-slate-400"
+                }`}>{selectedFlight.confidence}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Region</span>
+                <span className="font-medium text-foreground">{selectedFlight.region}</span>
+              </div>
+            </div>
+            <div className="mt-2 text-[10px] text-muted-foreground/70">
+              OpenSky Network ADS-B data
             </div>
           </div>
         </Popup>

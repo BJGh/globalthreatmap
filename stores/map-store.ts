@@ -13,6 +13,23 @@ export interface MilitaryBaseMarker {
   type: "usa" | "nato";
 }
 
+export interface MilitaryFlightMarker {
+  icao24: string;
+  callsign: string;
+  originCountry: string;
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  velocity: number;
+  heading: number;
+  verticalRate: number;
+  onGround: boolean;
+  squawk: string;
+  aircraftType: string;
+  confidence: "high" | "medium" | "low";
+  region: string;
+}
+
 export interface FireDetectionMarker {
   latitude: number;
   longitude: number;
@@ -40,6 +57,9 @@ interface MapState {
   showFireDetections: boolean;
   fireDetections: FireDetectionMarker[];
   fireDetectionsLoading: boolean;
+  showMilitaryFlights: boolean;
+  militaryFlights: MilitaryFlightMarker[];
+  militaryFlightsLoading: boolean;
 
   setViewport: (viewport: Partial<MapViewport>) => void;
   flyTo: (longitude: number, latitude: number, zoom?: number) => void;
@@ -50,6 +70,9 @@ interface MapState {
   toggleFireDetections: () => void;
   setFireDetections: (fires: FireDetectionMarker[]) => void;
   setFireDetectionsLoading: (loading: boolean) => void;
+  toggleMilitaryFlights: () => void;
+  setMilitaryFlights: (flights: MilitaryFlightMarker[]) => void;
+  setMilitaryFlightsLoading: (loading: boolean) => void;
   startDrawingWatchbox: () => void;
   stopDrawingWatchbox: () => void;
   setActiveWatchbox: (id: string | null) => void;
@@ -84,6 +107,9 @@ export const useMapStore = create<MapState>((set) => ({
   showFireDetections: true,
   fireDetections: [],
   fireDetectionsLoading: false,
+  showMilitaryFlights: true,
+  militaryFlights: [],
+  militaryFlightsLoading: false,
 
   setViewport: (viewport) =>
     set((state) => ({
@@ -128,6 +154,15 @@ export const useMapStore = create<MapState>((set) => ({
   setFireDetections: (fires) => set({ fireDetections: fires }),
 
   setFireDetectionsLoading: (loading) => set({ fireDetectionsLoading: loading }),
+
+  toggleMilitaryFlights: () =>
+    set((state) => ({
+      showMilitaryFlights: !state.showMilitaryFlights,
+    })),
+
+  setMilitaryFlights: (flights) => set({ militaryFlights: flights }),
+
+  setMilitaryFlightsLoading: (loading) => set({ militaryFlightsLoading: loading }),
 
   startDrawingWatchbox: () => set({ isDrawingWatchbox: true }),
 

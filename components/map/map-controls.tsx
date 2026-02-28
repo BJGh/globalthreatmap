@@ -1,7 +1,7 @@
 "use client";
 
 import { useMapStore } from "@/stores/map-store";
-import { Shield, Flame } from "lucide-react";
+import { Shield, Flame, Plane } from "lucide-react";
 
 export function MapControls() {
   const {
@@ -11,10 +11,33 @@ export function MapControls() {
     toggleFireDetections,
     fireDetections,
     fireDetectionsLoading,
+    showMilitaryFlights,
+    toggleMilitaryFlights,
+    militaryFlights,
+    militaryFlightsLoading,
   } = useMapStore();
 
   return (
     <div className="absolute bottom-20 left-6 z-10 flex flex-col gap-2">
+      <button
+        onClick={toggleMilitaryFlights}
+        className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+          showMilitaryFlights
+            ? "bg-sky-600 text-white hover:bg-sky-700"
+            : "bg-card/95 text-foreground hover:bg-card border border-border"
+        } backdrop-blur-sm`}
+        title={
+          showMilitaryFlights
+            ? `Hide Military Flights (${militaryFlights.length})`
+            : "Show Military Flights (OpenSky)"
+        }
+      >
+        {militaryFlightsLoading ? (
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        ) : (
+          <Plane className="h-5 w-5" />
+        )}
+      </button>
       <button
         onClick={toggleFireDetections}
         className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
